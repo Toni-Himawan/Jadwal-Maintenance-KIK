@@ -1,4 +1,0 @@
-pip freeze > requirements.txt
-streamlit
-pandas
-openpyxl
