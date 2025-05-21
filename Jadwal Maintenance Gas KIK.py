@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 from datetime import datetime
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+import io
 
 st.set_page_config(page_title="Jadwal Maintenance & Shift Operator", layout="centered")
 
@@ -41,6 +44,41 @@ bulan_dict = {
     5: 'Mei', 6: 'Juni', 7: 'Juli', 8: 'Agustus',
     9: 'September', 10: 'Oktober', 11: 'November', 12: 'Desember'
 }
+
+# Fungsi untuk membuat laporan PDF
+def create_pdf(df, file_name="laporan_jadwal_shift.pdf"):
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    
+    # Menambahkan judul
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(200, 750, "Laporan Jadwal Shift Operator")
+    c.setFont("Helvetica", 10)
+    
+    # Menambahkan tanggal dan informasi lainnya
+    today = datetime.now().strftime('%d %B %Y')
+    c.drawString(30, 730, f"Tanggal Laporan: {today}")
+    
+    c.drawString(30, 710, "Dibuat: ___________________")
+    c.drawString(30, 690, "Dicheck: ___________________")
+    c.drawString(30, 670, "Disetujui: ___________________")
+    
+    # Menambahkan tabel (dataframe)
+    y_position = 650
+    for col in df.columns:
+        c.drawString(30, y_position, col)
+        y_position -= 20
+    
+    for index, row in df.iterrows():
+        y_position -= 20
+        for value in row:
+            c.drawString(100, y_position, str(value))
+            y_position += 40
+        
+    c.save()
+    
+    buffer.seek(0)
+    return buffer
 
 if uploaded_file:
     try:
@@ -103,6 +141,10 @@ if uploaded_file:
 
                 df_xlsx = to_excel(df_shift_filtered)
                 st.download_button("⬇️ Unduh Jadwal Shift (Excel)", df_xlsx, "jadwal_shift.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+                # Laporan PDF
+                pdf_buffer = create_pdf(df_shift_filtered)
+                st.download_button("⬇️ Unduh Laporan Shift (PDF)", pdf_buffer, "laporan_shift.pdf", "application/pdf")
 
             with tab2:
                 st.subheader("Filter Jadwal per Operator")
