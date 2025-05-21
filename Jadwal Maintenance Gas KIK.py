@@ -12,12 +12,14 @@ st.title("📋 Jadwal Maintenance dan Shift Operator")
 
 uploaded_file = st.file_uploader("Unggah file Excel (.xlsx) berisi dua sheet:", type="xlsx")
 
+# Fungsi untuk mengubah DataFrame menjadi file Excel untuk diunduh
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Jadwal Shift')
     return output.getvalue()
 
+# Fungsi untuk memberi warna pada shift
 def highlight_shift(val):
     if val == "Pagi":
         return 'background-color: #d4edda'  # hijau muda
@@ -29,12 +31,14 @@ def highlight_shift(val):
         return 'background-color: #e2e3e5'  # abu muda
     return ''
 
+# Fungsi untuk menandai hari ini pada jadwal
 def highlight_today(row):
     today = datetime.now().strftime('%d %B %Y')
     if row['Tanggal'] == today:
         return ['background-color: #cce5ff; font-weight: bold'] * len(row)
     return [''] * len(row)
 
+# Kamus hari dan bulan dalam bahasa Indonesia
 hari_dict = {
     'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
     'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
@@ -80,11 +84,14 @@ def create_pdf(df, file_name="laporan_jadwal_shift.pdf"):
     buffer.seek(0)
     return buffer
 
+# Proses ketika file diunggah
 if uploaded_file:
     try:
+        # Membaca kedua sheet dalam file Excel
         sheet1 = pd.read_excel(uploaded_file, sheet_name=0)
         sheet2 = pd.read_excel(uploaded_file, sheet_name=1)
 
+        # Menyusun kolom hari dan tanggal dalam format yang benar
         sheet1['Tanggal'] = pd.to_datetime(sheet1['Tanggal'])
         try:
             sheet1['Hari'] = pd.to_datetime(sheet1['Hari']).dt.day_name().map(hari_dict)
@@ -97,6 +104,7 @@ if uploaded_file:
         except:
             sheet2['Hari'] = sheet2['Hari'].map(hari_dict).fillna(sheet2['Hari'])
 
+        # Menampilkan Jadwal Maintenance
         st.header("🛠️ Jadwal Maintenance")
         kolom_maintenance = ['Tanggal', 'Hari', 'Kegiatan', 'Jumlah Titik/Item', 'Minggu Ke']
         if all(col in sheet1.columns for col in kolom_maintenance):
@@ -119,6 +127,7 @@ if uploaded_file:
         else:
             st.warning("Kolom di sheet pertama tidak sesuai format yang diharapkan.")
 
+        # Menampilkan Jadwal Shift Operator
         hari_ini = datetime.now()
         tanggal_indo = f"{hari_ini.day} {bulan_dict[hari_ini.month]} {hari_ini.year}"
         st.header("👷 Jadwal Shift Operator")
