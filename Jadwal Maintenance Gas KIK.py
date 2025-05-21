@@ -12,14 +12,12 @@ st.title("📋 Jadwal Maintenance dan Shift Operator")
 
 uploaded_file = st.file_uploader("Unggah file Excel (.xlsx) berisi dua sheet:", type="xlsx")
 
-# Fungsi untuk mengubah DataFrame menjadi file Excel untuk diunduh
 def to_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Jadwal Shift')
     return output.getvalue()
 
-# Fungsi untuk memberi warna pada shift
 def highlight_shift(val):
     if val == "Pagi":
         return 'background-color: #d4edda'  # hijau muda
@@ -31,14 +29,12 @@ def highlight_shift(val):
         return 'background-color: #e2e3e5'  # abu muda
     return ''
 
-# Fungsi untuk menandai hari ini pada jadwal
 def highlight_today(row):
     today = datetime.now().strftime('%d %B %Y')
     if row['Tanggal'] == today:
         return ['background-color: #cce5ff; font-weight: bold'] * len(row)
     return [''] * len(row)
 
-# Kamus hari dan bulan dalam bahasa Indonesia
 hari_dict = {
     'Monday': 'Senin', 'Tuesday': 'Selasa', 'Wednesday': 'Rabu',
     'Thursday': 'Kamis', 'Friday': 'Jumat', 'Saturday': 'Sabtu', 'Sunday': 'Minggu'
@@ -50,48 +46,63 @@ bulan_dict = {
 }
 
 # Fungsi untuk membuat laporan PDF
-def create_pdf(df, file_name="laporan_jadwal_shift.pdf"):
+def create_pdf(sheet1_filtered, sheet2_filtered, bulan_pilihan_nama, minggu_pilihan, file_name="laporan_jadwal_shift.pdf"):
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
-    
-    # Menambahkan judul
+
+    # Menambahkan judul laporan
     c.setFont("Helvetica-Bold", 14)
-    c.drawString(200, 750, "Laporan Jadwal Shift Operator")
+    c.drawString(200, 750, "Laporan Jadwal Shift dan Maintenance")
     c.setFont("Helvetica", 10)
-    
-    # Menambahkan tanggal dan informasi lainnya
+
+    # Menambahkan tanggal laporan
     today = datetime.now().strftime('%d %B %Y')
     c.drawString(30, 730, f"Tanggal Laporan: {today}")
     
-    c.drawString(30, 710, "Dibuat: ___________________")
-    c.drawString(30, 690, "Dicheck: ___________________")
-    c.drawString(30, 670, "Disetujui: ___________________")
-    
-    # Menambahkan tabel (dataframe)
-    y_position = 650
-    for col in df.columns:
+    # Menambahkan bagian Jadwal Maintenance
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(30, 710, f"Jadwal Maintenance Bulan: {bulan_pilihan_nama} - Minggu Ke: {minggu_pilihan}")
+    c.setFont("Helvetica", 10)
+
+    # Menambahkan tabel Jadwal Maintenance
+    y_position = 690
+    for col in sheet1_filtered.columns:
         c.drawString(30, y_position, col)
         y_position -= 20
-    
-    for index, row in df.iterrows():
+
+    for index, row in sheet1_filtered.iterrows():
         y_position -= 20
         for value in row:
             c.drawString(100, y_position, str(value))
             y_position += 40
-        
+
+    # Menambahkan bagian Jadwal Shift Operator
+    y_position -= 60
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(30, y_position, "Jadwal Shift Operator")
+    c.setFont("Helvetica", 10)
+
+    y_position -= 20
+    for col in sheet2_filtered.columns:
+        c.drawString(30, y_position, col)
+        y_position -= 20
+
+    for index, row in sheet2_filtered.iterrows():
+        y_position -= 20
+        for value in row:
+            c.drawString(100, y_position, str(value))
+            y_position += 40
+
     c.save()
-    
+
     buffer.seek(0)
     return buffer
 
-# Proses ketika file diunggah
 if uploaded_file:
     try:
-        # Membaca kedua sheet dalam file Excel
         sheet1 = pd.read_excel(uploaded_file, sheet_name=0)
         sheet2 = pd.read_excel(uploaded_file, sheet_name=1)
 
-        # Menyusun kolom hari dan tanggal dalam format yang benar
         sheet1['Tanggal'] = pd.to_datetime(sheet1['Tanggal'])
         try:
             sheet1['Hari'] = pd.to_datetime(sheet1['Hari']).dt.day_name().map(hari_dict)
@@ -117,13 +128,13 @@ if uploaded_file:
             minggu_list = sorted(filtered['Minggu Ke'].unique())
             minggu_pilihan = st.selectbox("Pilih Minggu Ke", options=minggu_list)
 
-            filtered = filtered[filtered['Minggu Ke'] == minggu_pilihan]
-            filtered['Tanggal'] = filtered['Tanggal'].dt.strftime('%d %B %Y')
-            if 'Bulan' in filtered.columns:
-                filtered = filtered.drop(columns=['Bulan'])
+            sheet1_filtered = filtered[filtered['Minggu Ke'] == minggu_pilihan]
+            sheet1_filtered['Tanggal'] = sheet1_filtered['Tanggal'].dt.strftime('%d %B %Y')
+            if 'Bulan' in sheet1_filtered.columns:
+                sheet1_filtered = sheet1_filtered.drop(columns=['Bulan'])
 
             st.subheader(f"Jadwal Maintenance {bulan_pilihan_nama}")
-            st.dataframe(filtered)
+            st.dataframe(sheet1_filtered)
         else:
             st.warning("Kolom di sheet pertama tidak sesuai format yang diharapkan.")
 
@@ -152,8 +163,8 @@ if uploaded_file:
                 st.download_button("⬇️ Unduh Jadwal Shift (Excel)", df_xlsx, "jadwal_shift.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
                 # Laporan PDF
-                pdf_buffer = create_pdf(df_shift_filtered)
-                st.download_button("⬇️ Unduh Laporan Shift (PDF)", pdf_buffer, "laporan_shift.pdf", "application/pdf")
+                pdf_buffer = create_pdf(sheet1_filtered, df_shift_filtered, bulan_pilihan_nama, minggu_pilihan)
+                st.download_button("⬇️ Unduh Laporan Shift dan Maintenance (PDF)", pdf_buffer, "laporan_shift_maintenance.pdf", "application/pdf")
 
             with tab2:
                 st.subheader("Filter Jadwal per Operator")
